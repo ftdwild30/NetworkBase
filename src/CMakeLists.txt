@@ -3,7 +3,8 @@ file(GLOB_RECURSE BASE_FILES
 file(GLOB_RECURSE UTILS_FILES
         ${ROOT_DIR}/src/utils/*.cpp)
 
-include_directories(${ROOT_DIR}/base/transport)
+include_directories(${ROOT_DIR}/src/base/transport
+        ${ROOT_DIR}/src/utils/system)
 
 
 set(ALL_FILES ${BASE_FILES} ${UTILS_FILES})
