@@ -5,10 +5,11 @@
 #ifndef NETWORK_BASE_F_SOCKET_H
 #define NETWORK_BASE_F_SOCKET_H
 
-namespace ftdwild30 {
-
 #include <stdarg.h>
+#include <unistd.h>
 #include <string>
+
+namespace ftdwild30 {
 
 //socket通用的API
 class SocketAssistant {
