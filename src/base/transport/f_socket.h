@@ -66,7 +66,7 @@ private:
     void RealWrite();
     int GetFd() const;
     Status Getstatus() const;
-
+    friend class Engine;
 private:
     //子类需要实现的纯虚函数功能
 
