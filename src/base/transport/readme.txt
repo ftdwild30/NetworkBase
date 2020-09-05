@@ -1,0 +1,2 @@
+transport指的是传输层的抽象，包括TCP/UDP；
+transport还抽象了基于传输层的传输加密层，包括TLS/DTLS
