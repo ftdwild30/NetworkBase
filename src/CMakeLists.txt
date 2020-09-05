@@ -4,6 +4,7 @@ file(GLOB_RECURSE UTILS_FILES
         ${ROOT_DIR}/src/utils/*.cpp)
 
 include_directories(${ROOT_DIR}/src/base/transport
+        ${ROOT_DIR}/src/base/engine
         ${ROOT_DIR}/src/utils/system)
 
 
