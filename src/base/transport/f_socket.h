@@ -7,6 +7,7 @@
 
 namespace ftdwild30 {
 
+#include <stdarg.h>
 #include <string>
 
 //socket通用的API
@@ -53,6 +54,10 @@ public:
     virtual ssize_t Send(const char *buf, size_t len) = 0;
 
 protected:
+    //子类使用
+    ssize_t send(const char *buf, size_t len);
+
+private:
     //友元，网络引擎使用
     void RealConnect();
     void RealDisconnect();
@@ -60,10 +65,6 @@ protected:
     void RealWrite();
     int GetFd() const;
     Status Getstatus() const;
-
-protected:
-    //子类使用
-    ssize_t send(const char *buf, size_t len);
 
 private:
     //子类需要实现的纯虚函数功能
@@ -73,9 +74,20 @@ private:
     //当连接断开时被调用
     virtual void OnDisconnect() = 0;
     //当连接读取到数据时被调用
-    virtual void OnRead(const char *data, size_t len, bool finish) = 0;
+    virtual ssize_t OnRead(const char *data, size_t len, bool finish) = 0;
     //当连接可写时被调用
     virtual ssize_t OnWrite() = 0;
+
+private:
+    char *read_cache_;
+    uint16_t port_;
+    int fd_;
+    int protocol_;
+    bool connected_;
+    Status status_;
+    std::string ip_;
+private:
+    static const size_t kRecvCacheLen = 16384;//16k
 };
 
 } // namespace ftdwild30
