@@ -5,7 +5,8 @@ file(GLOB_RECURSE UTILS_FILES
 
 include_directories(${ROOT_DIR}/src/base/transport
         ${ROOT_DIR}/src/base/engine
-        ${ROOT_DIR}/src/utils/system)
+        ${ROOT_DIR}/src/utils/system
+        ${ROOT_DIR}/src/utils/tool)
 
 
 set(ALL_FILES ${BASE_FILES} ${UTILS_FILES})
