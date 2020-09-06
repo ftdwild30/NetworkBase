@@ -14,6 +14,7 @@ namespace ftdwild30 {
 
 
 class AutoGrowBuffer {
+public:
     explicit AutoGrowBuffer(size_t default_len);
     ~AutoGrowBuffer();
 
