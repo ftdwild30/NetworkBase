@@ -7,7 +7,7 @@ include_directories(${ROOT_DIR}/src/base/transport
         ${ROOT_DIR}/src/base/engine
         ${ROOT_DIR}/src/utils/system
         ${ROOT_DIR}/src/utils/tool)
-
+include_directories(${ROOT_DIR}/build/release/mbedtls/include)
 
 set(ALL_FILES ${BASE_FILES} ${UTILS_FILES})
 
