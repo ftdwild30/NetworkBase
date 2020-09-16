@@ -8,6 +8,7 @@
 #include "f_dns_service.h"
 #include "f_transmission.h"
 #include "f_transmission_security.h"
+#include "f_socket_assistant.h"
 #include "f_connector_dns.h"
 
 namespace ftdwild30 {

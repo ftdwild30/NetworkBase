@@ -11,20 +11,7 @@
 
 namespace ftdwild30 {
 
-//socket通用的API
-class SocketAssistant {
-public:
-    SocketAssistant() = default;
-    ~SocketAssistant() = default;
 
-    static int MakeNonBlock(int fd);
-
-    static int ErrorWouldBlock();
-
-    static int SocketFinishConnecting(int fd);
-
-    static bool IpValid(const std::string &ip);
-};
 
 //负责一个socket的管理，一般用于网络连接
 class Socket {
