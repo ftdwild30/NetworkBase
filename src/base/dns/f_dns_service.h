@@ -69,13 +69,13 @@ public:
 
     void Start();
 
-    void GetAddrInfo(const std::string &addr, uint16_t port, std::shared_ptr<Engine> engine, std::shared_ptr<DnsProtocolResult> result);
+    void GetAddrInfo(const std::string &addr, uint16_t port, Engine *engine, std::shared_ptr<DnsProtocolResult> result);
 
 private:
     void resolvConfParse();
     void resolvConfParseLine(char *start);
     void checkDnsNameService();
-    static void getAddrInfo(const std::string &name_service, const std::string &addr, uint16_t port, std::shared_ptr<Engine> engine, std::shared_ptr<DnsProtocolResult> result);
+    static void getAddrInfo(const std::string &name_service, const std::string &addr, uint16_t port, Engine *engine, std::shared_ptr<DnsProtocolResult> result);
 
 private:
     bool init_;

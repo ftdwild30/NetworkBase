@@ -4,7 +4,10 @@
 
 #include "f_dns_service.h"
 
+#include <assert.h>
+
 #include "f_dns_protocol.h"
+#include "f_transmission.h"
 
 
 namespace ftdwild30 {
@@ -73,7 +76,7 @@ void DnsService::Start() {
 
 void DnsService::GetAddrInfo(const std::string &addr,
                              uint16_t port,
-                             std::shared_ptr<Engine> engine,
+                             Engine *engine,
                              std::shared_ptr<DnsProtocolResult> result) {
     if (!init_) {
         return;
@@ -156,9 +159,18 @@ void DnsService::checkDnsNameService() {
 void DnsService::getAddrInfo(const std::string &name_service,
                              const std::string &addr,
                              uint16_t port,
-                             std::shared_ptr<Engine> engine,
+                             Engine *engine,
                              std::shared_ptr<DnsProtocolResult> result) {
+    assert(engine);
 
+    std::shared_ptr<DnsProtocolProcess> process = std::make_shared<DnsProtocolProcess>(result);
+    std::shared_ptr<Transmission> trans = std::make_shared<Transmission>(process);
+    process->SetAddr(addr, port);
+    process->SetSocket(trans);
+    trans->SetProtocol(1);//UDP
+    trans->SetIpPort(name_service, DnsProtocol::kDnsPort);
+    trans->Connect();
+    engine->Add(trans);
 }
 
 } // namespace ftdwild30
