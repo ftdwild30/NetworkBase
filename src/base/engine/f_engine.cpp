@@ -12,10 +12,12 @@ namespace ftdwild30 {
 Engine::Engine() : Thread() {
     fd_ = 0;
     io_ = new IoMultiplexing();
+    pair_ = new SocketPair();
 }
 
 Engine::~Engine() {
     delete io_;
+    delete pair_;
 }
 
 size_t Engine::Add(std::shared_ptr<Socket> socket) {
@@ -23,6 +25,7 @@ size_t Engine::Add(std::shared_ptr<Socket> socket) {
     size_t fd = ++fd_;
     sockets_.insert(std::make_pair(fd, socket));
     mutex_.unlock();
+    pair_->Send("t", 1);//发送一字节任意数据，能唤醒即可
 
     return fd;
 }
@@ -44,6 +47,29 @@ bool Engine::Query(size_t fd, std::shared_ptr<Socket> &socket) {
 
 int Engine::readThread() {
     io_->Clear();
+    io_->Dispatch(false, kLoopTimeIntervalMs);
+
+    mutex_.lock();
+    if (sockets_.empty()) {
+        mutex_.unlock();
+
+        io_->AddFd(pair_->GetReadFd(), true, false);
+        int ret = io_->Dispatch(false, kMaxSleepMs);
+        if (ret < 0) {
+            return -1;
+        }
+
+        if (ret == 0) {//无新增socket
+            return 0;
+        }
+
+        /* 有新增socket，清理当前pair的数据，并返回进行下一次循环 */
+        if (!io_->IsReadable(pair_->GetReadFd())) {
+            return 01;
+        }
+        pair_->Readable();
+        return 0;
+    }
 
     //取出所有待办项目
     SOCKET_MAP connecting_sockets;
@@ -82,7 +108,6 @@ int Engine::readThread() {
 
     //无有效socket时，休眠一段时间（也可以不休眠，多占用CPU）
     if (connected_sockets.empty()) {
-        io_->Dispatch(false, kLoopTimeIntervalMs);
         return 0;
     }
 
@@ -108,10 +133,6 @@ int Engine::readThread() {
         }
     }
 
-    //休眠一段时间（也可以不休眠）
-    io_->Clear();
-    io_->Dispatch(false, kLoopTimeIntervalMs);
-
     return 0;
 }
 
@@ -128,6 +149,10 @@ int Engine::afterThread() {
     }
 
     return 0;
+}
+
+void Engine::beforeStop() {
+    pair_->Send("t", 1);//发送一字节任意数据，能唤醒即可
 }
 
 } // namespace ftdwild30
