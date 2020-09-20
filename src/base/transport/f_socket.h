@@ -18,7 +18,8 @@ class Socket {
 public:
     enum Status {
         INIT = 0,
-        START_CONNECTING,
+        START_CONNECT,
+        CONNECTING,
         CONNECTED,
         DISCONNECTED,
     };
@@ -32,8 +33,8 @@ public:
     //设置ip,端口，不支持域名
     void SetIpPort(const std::string &ip, uint16_t port);
 
-    //异步连接
-    void Connect();
+    //异步连接,0为无超时，>0为超时时间
+    void Connect(size_t timeout_ms);
 
     //异步关闭
     void Close();
@@ -51,6 +52,7 @@ private:
     void RealDisconnect();
     void RealRead();
     void RealWrite();
+    bool RealConnectCheck();
     int GetFd() const;
     Status Getstatus() const;
     friend class Engine;
@@ -71,7 +73,8 @@ private:
     uint16_t port_;
     int fd_;
     int protocol_;
-    bool connected_;
+    bool timeout_check_;
+    size_t timeout_ms_;
     Status status_;
     std::string ip_;
 private:

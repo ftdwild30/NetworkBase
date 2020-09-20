@@ -65,20 +65,20 @@ size_t Connector::Create(std::shared_ptr<SocketHandler> handler, int protocol, c
     return engine_->Add(socket);
 }
 
-void Connector::Connect(size_t connector, const std::string &addr, uint16_t port, bool force_ip) {
+void Connector::Connect(size_t connector, const std::string &addr, uint16_t port, size_t timeout_ms) {
     if (!init_) {
         return;
     }
 
     std::shared_ptr<Socket> socket;
-    if (SocketAssistant::IpValid(addr) || force_ip) {
+    if (SocketAssistant::IpValid(addr)) {
         if (engine_->Query(connector, socket)) {
             socket->SetIpPort(addr, port);
-            socket->Connect();
+            socket->Connect(timeout_ms);
         }
     } else {
         std::shared_ptr<ConnectorDns> dns = std::make_shared<ConnectorDns>(connector);
-        dns_->GetAddrInfo(addr, port, engine_, dns);
+        dns_->GetAddrInfo(addr, port, timeout_ms, engine_, dns);
     }
 }
 
@@ -104,6 +104,16 @@ ssize_t Connector::Send(size_t connector, const char *buf, size_t len) {
     }
 
     return -1;
+}
+
+void Connector::connectIp(size_t connector, const std::string &addr, uint16_t port, size_t timeout_ms) {
+    std::shared_ptr<Socket> socket;
+    if (SocketAssistant::IpValid(addr)) {
+        if (engine_->Query(connector, socket)) {
+            socket->SetIpPort(addr, port);
+            socket->Connect(timeout_ms);
+        }
+    }
 }
 
 } // namespace ftdwild30

@@ -21,13 +21,13 @@ ConnectorDns::~ConnectorDns() {
 
 }
 
-void ConnectorDns::OnResult(int result, const std::string &ip, uint16_t port) {
+void ConnectorDns::OnResult(int result, const std::string &ip, uint16_t port, size_t time_remain) {
     if (result != 0) {
         Connector::Close(connector_);
         return;
     }
 
-    Connector::Connect(connector_, ip, port, true);
+    Connector::connectIp(connector_, ip, port, time_remain);
 }
 
 } // namespace ftdwild30

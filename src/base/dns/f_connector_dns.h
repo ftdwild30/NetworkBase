@@ -15,7 +15,7 @@ public:
     virtual ~ConnectorDns();
 
 private:
-    virtual void OnResult(int result, const std::string &ip, uint16_t port);
+    virtual void OnResult(int result, const std::string &ip, uint16_t port, size_t time_remain);
 
 private:
     size_t connector_;

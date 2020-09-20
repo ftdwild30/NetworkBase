@@ -29,13 +29,17 @@ public:
 
     static void Stop();
 
-    static size_t  Create(std::shared_ptr<SocketHandler> handler, int protocol, const char *ca, size_t ca_len);
+    static size_t Create(std::shared_ptr<SocketHandler> handler, int protocol, const char *ca, size_t ca_len);
 
-    static void Connect(size_t connector, const std::string &addr, uint16_t port, bool force_ip = false);
+    static void Connect(size_t connector, const std::string &addr, uint16_t port, size_t timeout_ms = 0);
 
     static void Close(size_t connector);
 
     static ssize_t Send(size_t connector, const char *buf, size_t len);
+
+private:
+    static void connectIp(size_t connector, const std::string &addr, uint16_t port, size_t timeout_ms);
+    friend class ConnectorDns;
 
 private:
     static bool init_;

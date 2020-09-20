@@ -8,6 +8,7 @@
 
 #include "f_dns_protocol.h"
 #include "f_transmission.h"
+#include "f_time.h"
 
 
 namespace ftdwild30 {
@@ -15,11 +16,23 @@ namespace ftdwild30 {
 DnsProtocolProcess::DnsProtocolProcess(std::shared_ptr<DnsProtocolResult> result) : SocketHandler()  {
     init_ = false;
     port_ = 0;
+    timeout_check_ = false;
+    on_result_ = false;
+    timeout_ms_ = 0;
     result_ = result;
 }
 
 DnsProtocolProcess::~DnsProtocolProcess() {
 
+}
+
+void DnsProtocolProcess::SetTimeout(size_t timeout_ms) {
+    if (timeout_ms) {
+        timeout_check_ = true;
+        timeout_ms_ = Time::GetSystemTimeMs() + timeout_ms;
+    } else {
+        timeout_check_ = false;
+    }
 }
 
 void DnsProtocolProcess::OnConnect() {
@@ -34,12 +47,15 @@ void DnsProtocolProcess::OnConnect() {
         socket_.lock()->Send(buf, index);
     } else {
         socket_.lock()->Close();
-        result_->OnResult(-1, "", 0);
+        on_result_ = true;
+        result_->OnResult(-1, "", 0, 0);
     }
 }
 
 void DnsProtocolProcess::OnDisconnect() {
-
+    if (!on_result_) {
+        result_->OnResult(-1, "", 0, 0);
+    }
 }
 
 ssize_t DnsProtocolProcess::OnData(const char *data, size_t len) {
@@ -49,12 +65,25 @@ ssize_t DnsProtocolProcess::OnData(const char *data, size_t len) {
 
     std::string ip;
     if (DnsProtocol::ResponseParse(data, len, ip) == 0) {
-        result_->OnResult(0, ip, port_);
+        on_result_ = true;
+        size_t timeout_ms;
+        if (!timeout_check_) {
+            timeout_ms = 0;
+        } else {
+            size_t now = Time::GetSystemTimeMs();
+            if ((now + kDnsTimeReserved) < timeout_ms_) {
+                timeout_ms = timeout_ms_ - now;
+            } else {
+                timeout_ms = kDnsTimeReserved;
+            }
+        }
+        result_->OnResult(0, ip, port_, timeout_ms);
     } else {
-        result_->OnResult(-1, "", 0);
+        on_result_ = true;
+        result_->OnResult(-1, "", 0, 0);
     }
     socket_.lock()->Close();
-    return 0;
+    return len;
 }
 
 void DnsProtocolProcess::OnWrite() {
@@ -76,13 +105,14 @@ void DnsService::Start() {
 
 void DnsService::GetAddrInfo(const std::string &addr,
                              uint16_t port,
+                             size_t timeout_ms,
                              Engine *engine,
                              std::shared_ptr<DnsProtocolResult> result) {
     if (!init_) {
         return;
     }
 
-    getAddrInfo(name_service_[0], addr, port, engine, result);
+    getAddrInfo(name_service_[0], addr, port, timeout_ms, engine, result);
 }
 
 void DnsService::resolvConfParse() {
@@ -159,6 +189,7 @@ void DnsService::checkDnsNameService() {
 void DnsService::getAddrInfo(const std::string &name_service,
                              const std::string &addr,
                              uint16_t port,
+                             size_t timeout_ms,
                              Engine *engine,
                              std::shared_ptr<DnsProtocolResult> result) {
     assert(engine);
@@ -167,9 +198,10 @@ void DnsService::getAddrInfo(const std::string &name_service,
     std::shared_ptr<Transmission> trans = std::make_shared<Transmission>(process);
     process->SetAddr(addr, port);
     process->SetSocket(trans);
+    process->SetTimeout(timeout_ms);
     trans->SetProtocol(1);//UDP
     trans->SetIpPort(name_service, DnsProtocol::kDnsPort);
-    trans->Connect();
+    trans->Connect(timeout_ms);
     engine->Add(trans);
 }
 

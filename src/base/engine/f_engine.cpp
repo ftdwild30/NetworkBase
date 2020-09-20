@@ -72,22 +72,26 @@ int Engine::readThread() {
     }
 
     //取出所有待办项目
-    SOCKET_MAP connecting_sockets;
-    SOCKET_MAP connected_sockets;
-    SOCKET_MAP disconnect_sockets;
+    SOCKET_MAP start_connect;
+    SOCKET_MAP connecting;
+    SOCKET_MAP connected;
+    SOCKET_MAP disconnect;
 
     mutex_.lock();
     for (SOCKET_MAP::iterator it = sockets_.begin(); it != sockets_.end();) {
         if (it->second->Getstatus() == Socket::INIT) {
             ++it;
-        } else if (it->second->Getstatus() == Socket::START_CONNECTING) {
-            connecting_sockets.insert(*it);
+        } else if (it->second->Getstatus() == Socket::START_CONNECT) {
+            start_connect.insert(*it);
+            ++it;
+        } else if (it->second->Getstatus() == Socket::CONNECTING) {
+            start_connect.insert(*it);
             ++it;
         } else if (it->second->Getstatus() == Socket::CONNECTED) {
-            connected_sockets.insert(*it);
+            connected.insert(*it);
             ++it;
         } else if (it->second->Getstatus() == Socket::DISCONNECTED) {
-            disconnect_sockets.insert(*it);
+            disconnect.insert(*it);
             sockets_.erase(it++);
         } else {
             mutex_.unlock();
@@ -97,22 +101,31 @@ int Engine::readThread() {
     mutex_.unlock();
 
     //无效连接关闭
-    for (SOCKET_MAP::iterator it = disconnect_sockets.begin(); it != disconnect_sockets.end(); ++it) {
-        it->second->RealDisconnect();
+    for (SOCKET_MAP::iterator it = disconnect.begin(); it != disconnect.end(); ++it) {
+        if (it->second->RealConnectCheck()) {
+            it->second->Close();
+        } else {
+            connected.insert(*it);
+        }
+    }
+
+    //无有效socket时，休眠一段时间
+    if (connected.empty()) {
+        return 0;
     }
 
     //处理连接事件
-    for (SOCKET_MAP::iterator it = connecting_sockets.begin(); it != connecting_sockets.end(); ++it) {
+    for (SOCKET_MAP::iterator it = start_connect.begin(); it != start_connect.end(); ++it) {
         it->second->RealConnect();
     }
 
     //无有效socket时，休眠一段时间（也可以不休眠，多占用CPU）
-    if (connected_sockets.empty()) {
+    if (connected.empty()) {
         return 0;
     }
 
     //处理已连接socket的读写事件
-    for (SOCKET_MAP::iterator it = connected_sockets.begin(); it != connected_sockets.end(); ++it) {
+    for (SOCKET_MAP::iterator it = connected.begin(); it != connected.end(); ++it) {
         io_->AddFd(it->second->GetFd(), true, true);
     }
     int ret = io_->Dispatch(false, kLoopTimeIntervalMs);
@@ -124,7 +137,7 @@ int Engine::readThread() {
         //延时任务到期，无可读写的socket
         return 0;
     }
-    for (SOCKET_MAP::iterator it = connected_sockets.begin(); it != connected_sockets.end(); ++it) {
+    for (SOCKET_MAP::iterator it = connected.begin(); it != connected.end(); ++it) {
         if (io_->IsWritable(it->second->GetFd())) {
             it->second->RealWrite();
         }

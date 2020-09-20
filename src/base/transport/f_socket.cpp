@@ -12,6 +12,7 @@
 
 #include "f_log.h"
 #include "f_socket_assistant.h"
+#include "f_time.h"
 
 namespace ftdwild30 {
 
@@ -20,7 +21,8 @@ namespace ftdwild30 {
 Socket::Socket() {
     fd_ = 0;
     port_ = 0;
-    connected_ = false;
+    timeout_check_ = false;
+    timeout_ms_ = 0;
     status_ = INIT;
     protocol_ = 0;
     read_cache_ = new char[kRecvCacheLen];
@@ -39,14 +41,21 @@ void Socket::SetIpPort(const std::string &ip, uint16_t port) {
     port_ = port;
 }
 
-void Socket::Connect() {
+void Socket::Connect(size_t timeout_ms) {
     if (!SocketAssistant::IpValid(ip_)) {
         LOG_ERROR("Illegal ip");
         return;
     }
 
+    if (timeout_ms) {
+        timeout_check_ = true;
+        timeout_ms_ = Time::GetSystemTimeMs() + timeout_ms;
+    } else {
+        timeout_check_ = false;
+    }
+
     if (status_ == INIT) {
-        status_ = START_CONNECTING;
+        status_ = START_CONNECT;
     }
 }
 
@@ -55,8 +64,9 @@ void Socket::Close() {
 }
 
 void Socket::RealConnect() {
-    if (status_ != START_CONNECTING) {
-        return;
+    //确认状态
+    if (status_ != START_CONNECT) {
+        status_ = DISCONNECTED;
     }
 
     if (protocol_ == 0) {
@@ -91,21 +101,26 @@ void Socket::RealConnect() {
         }
     }
 
-    status_ = CONNECTED;
+    status_ = CONNECTING;
 }
 
 void Socket::RealDisconnect() {
+    OnDisconnect();
     if (fd_) {
         close(fd_);
     }
-
-    OnDisconnect();
 }
 
 void Socket::RealRead() {
-    if (!connected_) {
-        LOG_DEBUG("Socket not connected");
-        return ;
+    //先确认连接状态
+    if (status_ == INIT || status_ == START_CONNECT || status_ == DISCONNECTED) {
+        status_ = DISCONNECTED;
+        return;
+    }
+
+    //连接中，不做操作
+    if (status_ == CONNECTING) {
+        return;
     }
 
     bool flag = true;
@@ -153,7 +168,13 @@ void Socket::RealRead() {
 
 void Socket::RealWrite() {
     //未连接时，先确认连接状态
-    if (!connected_) {
+    //先确认连接状态
+    if (status_ == INIT || status_ == START_CONNECT || status_ == DISCONNECTED) {
+        status_ = DISCONNECTED;
+        return;
+    }
+
+    if (status_ == CONNECTING) {
         int ret = SocketAssistant::SocketFinishConnecting(fd_);
         if (ret < 0) {
             LOG_ERROR("Socket error, shutdown");
@@ -166,7 +187,7 @@ void Socket::RealWrite() {
             return;
         }
 
-        connected_ = true;
+        status_ = CONNECTED;
         OnConnect();//通知连接已完成
     }
 
