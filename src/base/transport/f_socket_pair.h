@@ -27,6 +27,7 @@ public:
 
 private:
     friend class Engine;
+    friend class TaskQueue;
     int GetReadFd() const;
     void Readable();
     bool GetCloseStatus() const;
