@@ -89,7 +89,11 @@ int TaskQueue::doTask() {
 }
 
 int TaskQueue::beforeStart() {
-    return pair_->Start();
+    if (pair_->Start() < 0) {
+        return -1;
+    }
+
+    return io_->AddFd(pair_->GetReadFd(), true, false);
 }
 
 void TaskQueue::beforeStop() {
@@ -100,9 +104,6 @@ int TaskQueue::readThread() {
     if (pair_->GetCloseStatus()) {
         return -1;
     }
-
-    io_->Clear();
-    io_->AddFd(pair_->GetReadFd(), true, false);
 
     int ret = io_->Dispatch(false, sleep_time_);
 
@@ -115,8 +116,13 @@ int TaskQueue::readThread() {
     }
 
     //有新增任务
-    if (!io_->IsReadable(pair_->GetReadFd())) {
+    bool read;
+    bool write;
+    if (!io_->FdCheck(pair_->GetReadFd(), read, write)) {
         return -1;
+    }
+    if (!read) {
+        return 0;
     }
     pair_->Readable();
 

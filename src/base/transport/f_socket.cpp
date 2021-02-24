@@ -199,6 +199,11 @@ void Socket::RealWrite() {
     }
 }
 
+bool Socket::RealConnectCheck() {
+    //todo
+    return false;
+}
+
 int Socket::GetFd() const {
     return fd_;
 }

@@ -46,28 +46,32 @@ bool Engine::Query(size_t fd, std::shared_ptr<Socket> &socket) {
 }
 
 int Engine::readThread() {
-    io_->Clear();
-    io_->Dispatch(false, kLoopTimeIntervalMs);
+    //休眠一段时间
+    io_->Sleep(kLoopTimeIntervalMs);
 
     mutex_.lock();
     if (sockets_.empty()) {
         mutex_.unlock();
-
-        io_->AddFd(pair_->GetReadFd(), true, false);
         int ret = io_->Dispatch(false, kMaxSleepMs);
-        if (ret < 0) {
+        if (ret < 0) {//异常错误，退出
+            LOG_ERROR("Dispatch failed");
             return -1;
         }
 
-        if (ret == 0) {//无新增socket
+        if (ret == 0) {//休眠到期无新增socket
             return 0;
         }
 
-        /* 有新增socket，清理当前pair的数据，并返回进行下一次循环 */
-        if (!io_->IsReadable(pair_->GetReadFd())) {
-            return 01;
+        /* 有新增socket或者退出消息等，进行处理(清空读缓冲数据） */
+        bool read;
+        bool write;
+        if (io_->FdCheck(pair_->GetReadFd(), read, write) < 0) {
+            LOG_ERROR("Fd check error");
+            return -1;
         }
-        pair_->Readable();
+        if (read) {
+            pair_->Readable();
+        }
         return 0;
     }
 
@@ -102,16 +106,10 @@ int Engine::readThread() {
 
     //无效连接关闭
     for (SOCKET_MAP::iterator it = disconnect.begin(); it != disconnect.end(); ++it) {
-        if (it->second->RealConnectCheck()) {
-            it->second->Close();
-        } else {
-            connected.insert(*it);
+        if (io_->DeleteFd(it->second->GetFd() < 0)) {//删除无效链接
+            LOG_ERROR("Delete fd failed");
         }
-    }
-
-    //无有效socket时，休眠一段时间
-    if (connected.empty()) {
-        return 0;
+        it->second->RealDisconnect();
     }
 
     //处理连接事件
@@ -119,15 +117,25 @@ int Engine::readThread() {
         it->second->RealConnect();
     }
 
-    //无有效socket时，休眠一段时间（也可以不休眠，多占用CPU）
+    //处理连接中的事件，确认是否超时
+    for (SOCKET_MAP::iterator it = connecting.begin(); it != connecting.end(); ++it) {
+        if (it->second->RealConnectCheck()) {
+
+        } else {
+            if (io_->AddFd(it->second->GetFd(), true, true) < 0) {
+                LOG_ERROR("Add fd failed");
+                it->second->RealDisconnect();
+            }
+        }
+        connected.insert((*it));//连接未超时需要进行读写判断（和已连接的放在一起处理）
+    }
+
+    //无有效socket时，休眠一段时间
     if (connected.empty()) {
         return 0;
     }
 
-    //处理已连接socket的读写事件
-    for (SOCKET_MAP::iterator it = connected.begin(); it != connected.end(); ++it) {
-        io_->AddFd(it->second->GetFd(), true, true);
-    }
+    /* 连接成功和未超时的，都在io监听队列中，进行监听 */
     int ret = io_->Dispatch(false, kLoopTimeIntervalMs);
     if (ret < 0) {
         LOG_ERROR("Dispatch socket failed");
@@ -137,11 +145,17 @@ int Engine::readThread() {
         //延时任务到期，无可读写的socket
         return 0;
     }
+    bool read;
+    bool write;
     for (SOCKET_MAP::iterator it = connected.begin(); it != connected.end(); ++it) {
-        if (io_->IsWritable(it->second->GetFd())) {
+        if (io_->FdCheck(it->second->GetFd(), read, write) < 0) {
+            LOG_ERROR("Fd check error");
+            return -1;
+        }
+        if (write) {//要先处理读事件
             it->second->RealWrite();
         }
-        if (io_->IsReadable(it->second->GetFd())) {
+        if (read) {//要先处理读事件
             it->second->RealRead();
         }
     }
