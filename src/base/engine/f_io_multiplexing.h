@@ -35,8 +35,6 @@ public:
 
     int Dispatch(bool endless, size_t time_out_ms);
 
-    void Clear();
-
     int Sleep(size_t time_ms);
 
     int FdCheck(int fd, bool &read_able, bool &write_able);
@@ -64,8 +62,6 @@ public:
     int DeleteFd(int fd);
 
     int Dispatch(bool endless, size_t time_out_ms);
-
-    void Clear();
 
     int Sleep(size_t ms);
 
